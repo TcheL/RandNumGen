@@ -382,7 +382,7 @@ program RandNumGen
     subroutine Output(dOut)
       real(kind = MK) :: dOut(:, :)
       character(len = LSS) :: fmtstr
-      write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, F13.8))'
+      write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, G0))'
       do i = 1, Len2Dim(1), 1
         write(*, fmtstr) (dOut(i, j), j = 1, Len2Dim(2), 1)
       end do
