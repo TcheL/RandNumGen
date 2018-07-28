@@ -1,5 +1,5 @@
 ---
-MathJax: true
+mathjax: true
 ---
 
 # RandNumGen
