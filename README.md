@@ -1,7 +1,3 @@
----
-mathjax: true
----
-
 # RandNumGen
 
 Random Number Generator for specific statistic distribution, include uniform, normal, etc.
