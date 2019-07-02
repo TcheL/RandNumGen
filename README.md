@@ -1,6 +1,6 @@
 # RandNumGen
 
-Random Number Generator for specific statistic distribution, include uniform, normal, etc.
+Random Number Generator for some specific statistic distributions, including uniform, normal, etc.
 
 ## License
 
