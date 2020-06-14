@@ -397,15 +397,22 @@ program RandNumGen
     subroutine Output(dOut)
       real(kind = MK) :: dOut(:, :)
       character(len = LSS) :: fmtstr
-      if(DecimalNum < 0) then
-        write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, G0))'
+      if(DecimalNum == 0) then
+        write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, I0))'
+        do i = 1, Len2Dim(1), 1
+          write(*, fmtstr) (nint(dOut(i, j)), j = 1, Len2Dim(2), 1)
+        end do
       else
-        write(fmtstr, '(A, G0, A, G0, A, G0, A)') '(', Len2Dim(2), '(1X, F', &
-          & int(log10(maxval(dOut))) + DecimalNum + 3, '.', DecimalNum, '))'
+        if(DecimalNum < 0) then
+          write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, G0))'
+        else
+          write(fmtstr, '(A, G0, A, G0, A, G0, A)') '(', Len2Dim(2), '(1X, F', &
+            & int(log10(maxval(dOut))) + DecimalNum + 3, '.', DecimalNum, '))'
+        end if
+        do i = 1, Len2Dim(1), 1
+          write(*, fmtstr) (dOut(i, j), j = 1, Len2Dim(2), 1)
+        end do
       end if
-      do i = 1, Len2Dim(1), 1
-        write(*, fmtstr) (dOut(i, j), j = 1, Len2Dim(2), 1)
-      end do
     end subroutine Output
 
 end program RandNumGen
