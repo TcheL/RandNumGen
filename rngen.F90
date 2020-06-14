@@ -24,6 +24,7 @@ module Para_mod
 #else
   integer, parameter :: MK = 8
 #endif
+  real(kind = MK), parameter :: pi = 3.1415926535897932_MK
 
   logical :: IsVerbose, IsSilent
   character(len = :), allocatable :: ErrorPath
@@ -35,7 +36,8 @@ module Para_mod
 
   real(kind = MK) :: MulprScale, IncrmValue
 
-  integer :: Len2Dim(2)
+  integer :: DecimalNum, Len2Dim(2)
+
   real(kind = MK), allocatable :: rndOut(:, :)
 
   contains
@@ -44,7 +46,7 @@ module Para_mod
       NameDstrbt = 'uni'
       unia = 0.0_MK; unib = 1.0_MK
       MulprScale = 1.0_MK; IncrmValue = 0.0_MK
-      Len2Dim = 1
+      DecimalNum = - 1; Len2Dim = 1
       IsVerbose = .true.; IsSilent = .true.
       ErrorPath = '/rngen'; ErrorInfo = ' '
     end subroutine Para_Init
@@ -62,6 +64,8 @@ module Para_mod
       end if
       write(*, '(A, G0)') '  MulprScale = ', MulprScale
       write(*, '(A, G0)') '  IncrmValue = ', IncrmValue
+      if(DecimalNum >= 0) &
+        & write(*, '(A, G0)') '  DecimalNum = ', DecimalNum
       write(*, *)
     end subroutine Para_ConfigPrint
 
@@ -78,7 +82,7 @@ module Para_mod
       end if
       write(*, '(A)') '  Error Path: '//ErrorPath
       write(*, '(A)') '  Error Info: '//ErrorInfo
-      if(present(SupplyString)) write(*, '(A)') '  '//SupplyString
+      if(present(SupplyString)) write(*, '(A)') '  >> '//SupplyString
       write(*, *)
       if(IsError) stop 2
     end subroutine Para_ErrorExcept
@@ -141,6 +145,8 @@ module CmdP_mod
             call CmdP_ChangePara(MulprScale, i + 1)
           case('-i')
             call CmdP_ChangePara(IncrmValue, i + 1)
+          case('-p')
+            call CmdP_ChangePara(DecimalNum, i + 1)
           case('-d')
             call CmdP_ChangePara(Len2Dim, i + 1)
           case('-v')
@@ -175,8 +181,8 @@ module CmdP_mod
       ErrorPath = ErrorPath//'/CmdP_ChangePara_Int1D'
       write(StrTmp, '(A, G0, A)') 'Except when handling the #', &
         & ith, ' command line option.'
-      ErrorInfo = trim(adjustl(StrTmp))
-      if(CmdP_SegmNumInString(',', CmdStr) /= size(Var)) then
+      if(CmdP_SegmNumInString(',', CmdStr, 1) /= size(Var)) then
+        ErrorInfo = trim(adjustl(StrTmp))
         call Para_ErrorExcept(.true., 'Not enough parameter number.')
       else
         read(CmdStr, *) Var
@@ -199,8 +205,8 @@ module CmdP_mod
       ErrorPath = ErrorPath//'/CmdP_ChangePara_Real1D'
       write(StrTmp, '(A, G0, A)') 'Except when handling the #', &
         & ith, ' command line option.'
-      ErrorInfo = trim(adjustl(StrTmp))
-      if(CmdP_SegmNumInString(',', CmdStr) /= size(Var)) then
+      if(CmdP_SegmNumInString(',', CmdStr, 1) /= size(Var)) then
+        ErrorInfo = trim(adjustl(StrTmp))
         call Para_ErrorExcept(.true., 'Not enough parameter number.')
       else
         read(CmdStr, *) Var
@@ -226,12 +232,16 @@ module CmdP_mod
       end if
     end subroutine CmdP_ChangePara_Logical
   
-    recursive function CmdP_SegmNumInString(OneChar, String) result(Num)
+    recursive function CmdP_SegmNumInString(OneChar, String, iCall) result(Num)
       character, intent(in) :: OneChar
       character(len = *), intent(in) :: String
+      integer, intent(in) :: iCall
       integer :: Num, ipos
-      ErrorPath = ErrorPath//'/CmdP_SegmNumInString'
-      ErrorInfo = 'Except when handling the substring: '//String
+      if(iCall == 1) then
+        ErrorPath = ErrorPath//'/CmdP_SegmNumInString'
+        ErrorInfo = 'Except when handling the substring "'// &
+          & trim(adjustl(String))//'"'
+      end if
       ipos = index(String, OneChar)
       if(ipos == 0) then
         if(len_trim(String) == 0) &
@@ -239,11 +249,14 @@ module CmdP_mod
         Num = 1
       elseif(ipos == 1) then
         call Para_ErrorExcept(.false., 'Some segmentation is null.')
-        Num = CmdP_SegmNumInString(OneChar, String(ipos + 1:)) + 1
+        Num = CmdP_SegmNumInString(OneChar, String(ipos + 1:), iCall + 1) + 1
       else
-        Num = CmdP_SegmNumInString(OneChar, String(ipos + 1:)) + 1
+        Num = CmdP_SegmNumInString(OneChar, String(ipos + 1:), iCall + 1) + 1
       end if
-      ErrorPath = ErrorPath(:index(ErrorPath, '/', .true.) - 1); ErrorInfo = ' '
+      if(iCall == 1) then
+        ErrorPath = ErrorPath(:index(ErrorPath, '/', .true.) - 1)
+        ErrorInfo = ' '
+      end if
     end function CmdP_SegmNumInString
     
     subroutine CmdP_PrintHelpInfo()
@@ -251,7 +264,7 @@ module CmdP_mod
       write(*, *)
       write(*, '(A)') 'Usage: rngen [-v IsVerbose] [-s IsSilent]'// &
         & ' [ -uni unia,unib | -nor norMu,norSigma ] [-m MulprScale]'// &
-        & ' [-i IncrmValue] [-d Len2Dim]'
+        & ' [-i IncrmValue] [-p DecimalNum] [-d Len2Dim]'
       write(*, '(A)') '  [IsVerbose     ]: print verbose warning and help'// &
         & ' information (T) or not (F).'
       write(*, '(A)') '  [IsSilent      ]: print configure parameter (F)'// &
@@ -264,12 +277,14 @@ module CmdP_mod
         & ' multiplied by MulprScale to scale.'
       write(*, '(A)') '  [IncrmValue    ]: intermediary random number'// &
         & ' added by IncrmValue to shift.'
+      write(*, '(A)') '  [DecimalNum    ]: number of the decimal places'// &
+        & ' to be reserved.'
       write(*, '(A)') '  [Len2Dim       ]: dimension lengths of 2-D'// &
         & ' output array: dim1_len,dim2_len'
       write(*, *)
-      write(*, '(A)') 'rngen version 1.0 by: Tche LIU, USTC'
+      write(*, '(A)') 'rngen version 1.2 by: Tche LIU, USTC'
       write(*, '(A)') '  [Email]: seistche@gmail.com'
-      write(*, '(A)') '  [Date ]: 2018-4-25'
+      write(*, '(A)') '  [Date ]: 2020-6-14'
       write(*, *)
     end subroutine CmdP_PrintHelpInfo
   
@@ -282,7 +297,7 @@ module Rand_mod
 #ifdef IFORT
   use IFPORT
 #endif
-  use Para_mod, only : MK, NameDstrbt, unia, unib, norMu, norSigma
+  use Para_mod, only : MK, pi, NameDstrbt, unia, unib, norMu, norSigma
   implicit none
   public
 
@@ -301,10 +316,10 @@ module Rand_mod
       call system_clock(tSecond)
       PID = getpid()
       tSecond = ieor(tSecond, int(PID, kind(tSecond)))
-!     Seed(1) = Rand_LCG(tSecond)
-!     do i = 2, NSeed, 1
-!       Seed(i) = Rand_LCG(Seed(i - 1))
-!     end do
+      ! Seed(1) = Rand_LCG(tSecond)
+      ! do i = 2, NSeed, 1
+      !   Seed(i) = Rand_LCG(Seed(i - 1))
+      ! end do
       Seed = Rand_LCG(tSecond)
       call random_seed(put = Seed)
     end subroutine Rand_InitSeed
@@ -340,9 +355,9 @@ module Rand_mod
       call random_number(u1)
       call random_number(u2)
       if(IsGen) then
-        rnd = sqrt( - 2.0_MK*log(u1))*cos(2.0*3.1415926535897932_MK*u2)
+        rnd = sqrt( - 2.0_MK*log(u1))*cos(2.0*pi*u2)
       else
-        rnd = sqrt( - 2.0_MK*log(u1))*sin(2.0*3.1415926535897932_MK*u2)
+        rnd = sqrt( - 2.0_MK*log(u1))*sin(2.0*pi*u2)
       end if
       IsGen = .not. IsGen
       rnd = norMu + norSigma*rnd
@@ -382,7 +397,12 @@ program RandNumGen
     subroutine Output(dOut)
       real(kind = MK) :: dOut(:, :)
       character(len = LSS) :: fmtstr
-      write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, G0))'
+      if(DecimalNum < 0) then
+        write(fmtstr, '(A, G0, A)') '(', Len2Dim(2), '(2X, G0))'
+      else
+        write(fmtstr, '(A, G0, A, G0, A, G0, A)') '(', Len2Dim(2), '(1X, F', &
+          & int(log10(maxval(dOut))) + DecimalNum + 3, '.', DecimalNum, '))'
+      end if
       do i = 1, Len2Dim(1), 1
         write(*, fmtstr) (dOut(i, j), j = 1, Len2Dim(2), 1)
       end do
